@@ -38,3 +38,38 @@
    + 내장 DB 일 경우 스크립트가 생성이 안 되기 때문에 오류 발생
    + **운영에서 수동으로 스크립트 생성 후 설정하는 것을 권장**
 
+### 예시
+
+아래는 `local` (H2), `mysql` (MySQL) 이름의 프로필 2개를 만들어서 선택적으로 DB 를 이용할 수 있도록 `application.yml` 파일에 속성을 작성한 것
+
+```yaml
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    hikari:
+      jdbc-url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password:
+      driver-class-name: org.h2.Driver
+---
+spring:
+  config:
+    activate:
+      on-profile: mysql
+  datasource:
+    hikari:
+      jdbc-url: jdbc:mysql://localhost:3306/springbatch?useUnicode=true&characterEncoding=utf8
+      username: root
+      password: pass
+      driver-class-name: com.mysql.cj.jdbc.Driver # 8.x 이후
+      #driver-class-name: com.mysql.jdbc.Driver # 8.x 이전
+---
+spring:
+  profiles:
+    active: mysql
+  batch:
+    jdbc:
+      initialize-schema: always
+```
