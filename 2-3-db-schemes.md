@@ -68,7 +68,7 @@ spring:
 ---
 spring:
   profiles:
-    active: mysql
+    active: local
   batch:
     jdbc:
       initialize-schema: always
