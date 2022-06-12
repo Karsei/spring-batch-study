@@ -52,9 +52,9 @@ Job 의 설정과 구성을 동일하나 Job 이 실행되는 시점에 처리�
     + 내부적으로 JobName + JobKey (JobParameters 의 해시값) 를 가지고 JobInstance 객체를 얻음
 + Job 과는 일대다 관계
 
-#### BATCH_JOB_INSTANCE Table 매핑
+#### `BATCH_JOB_INSTANCE` Table 매핑
 
-`JOB_NAME` (Job) 과 `JOB_KEY` (JobParrameter 해시값) 가 동일한 데이터는 중복해서 저장할 수 없음
+`JOB_NAME` (Job) 과 `JOB_KEY` (`JobParameter` 해시값) 가 동일한 데이터는 중복해서 저장할 수 없음
 
 > 즉, `JobInstance` 는 DB 저장될 때 오직 유일한 값만 저장된다.
 
@@ -70,7 +70,51 @@ Job 의 설정과 구성을 동일하나 Job 이 실행되는 시점에 처리�
 
 ### JobParameter
 
+* `Job` 을 실행할 때 함께 포함되어 사용되는 파라미터를 가진 도메인 객체
+* 하나의 Job 에 존재할 수 있는 여러 개의 `JobInstance` 를 구분하기 위한 용도
+* `JobParameters` 와 `JobInstance` 는 1:1 관계
+
+#### 생성 및 바인딩
+
+* Application 실행 시 주입
+```bash
+$ java -jar LogBatch.jar requestDate=20220611 seq(long)=2L date(date)=2022/06/11
+```
+* 코드로 생성 - `JobParameterBuilder`, `DefaultJobParametersConverter`
+* SpEL(Spring Expression Language) 이용 - `@Value("#{jobParameter[requestDate]}")`, `@JobScope`, `@StepScope` 선언 필수
+
+#### `BATCH_JOB_EXECUTION_PARAM` 테이블과 매핑
+
+`JOB_EXECUTION` 과 1:M 의 관계
+
+#### Flow
+
+![Flow1](./jobparameters_flow.jpg)
+
+위의 그림에서 마지막으로 `BATCH_JOB_EXECUTION_PARAM` 테이블에 저장된다.
+
 ### JobExecution
+
+`JobInstance` 에 대한 한 번의 시도를 의미하는 객체로서 `Job` 실행 중에 발생한 정보들을 저장하고 있는 객체
+> 시작시간, 종료시간, 상태(시작됨, 완료, 실패), 종료상태의 속성을 가진다.
+> `JobExecution` 을 여러 번 생성하면 `JobInstance` 여러 개가 생성됨
+
+* `JobInstance` 와의 관계
+    + `JobExecution` 은 `FAILED` 또는 `COMPLETED` 등의 `Job` 의 실행 결과 상태를 가지고 있음
+    + `JobExecution` 의 실행 상태 결과가 `COMPLETED` 이면 `JobInstance` 실행이 완료된 것으로 간주하여 재실행이 불가능
+    + `JobExecution` 의 실행 상태 결과가 `FAILED` 이면 `JobInstance` 실행이 완료되지 않은 것으로 간주하여 재실행이 가능
+        + `JobParameter` 가 동일한 값으로 `Job` 을 실행할지라도 `JobInstance` 를 계속 실행할 수 있음
+    + `JobExecution` 의 실행 상태 결과가 `COMPLETED` 될 때까지 하나의 `JobInstance` 내에서 여러 번의 시도가 생길 수 있음
+
+#### `BATCH_JOB_EXECUTION` 테이블과 매핑
+
+`JobInstance` 와 `JobExecution` 은 1:M 의 관계로, `JobInstance` 에 대한 성공/실패의 내역을 가지고 있음
+
+#### Flow
+
+![Flow1](./jobexecution_flow.jpg)
+
+![Flow2](./jobexecution2_flow.jpg)
 
 ## Step
 
