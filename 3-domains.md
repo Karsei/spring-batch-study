@@ -60,13 +60,13 @@ Job 의 설정과 구성을 동일하나 Job 이 실행되는 시점에 처리�
 
 #### Flow
 
-![Flow](./jobinstance_flow.jpg)
+![Flow](./imgs/jobinstance_flow.jpg)
 
 여기서 `JobRepository` 는 메타데이터를 저장하는 객체이며 DB 에서 Job 이 처음 실행된 것인지, 이전에 실행된 것인지 확인한다.
 
 이전에 실행된 것이면 기존 `JobInstance` 를 반환하며 예외가 발생한다.
 
-![Flow1](./jobinstance_flow1.jpg)
+![Flow1](./imgs/jobinstance_flow1.jpg)
 
 ### JobParameter
 
@@ -89,7 +89,7 @@ $ java -jar LogBatch.jar requestDate=20220611 seq(long)=2L date(date)=2022/06/11
 
 #### Flow
 
-![Flow1](./jobparameters_flow.jpg)
+![Flow1](./imgs/jobparameters_flow.jpg)
 
 위의 그림에서 마지막으로 `BATCH_JOB_EXECUTION_PARAM` 테이블에 저장된다.
 
@@ -112,9 +112,9 @@ $ java -jar LogBatch.jar requestDate=20220611 seq(long)=2L date(date)=2022/06/11
 
 #### Flow
 
-![Flow1](./jobexecution_flow.jpg)
+![Flow1](./imgs/jobexecution_flow.jpg)
 
-![Flow2](./jobexecution2_flow.jpg)
+![Flow2](./imgs/jobexecution2_flow.jpg)
 
 ## Step
 
@@ -136,9 +136,9 @@ Batch Job 을 구성하는 독립적인 하나의 단계로서 실제 배치 처
 
 ### Flow
 
-![step_flow](./step_flow.jpg)
+![step_flow](./imgs/step_flow.jpg)
 
-![step2_flow](./step2_flow.jpg)
+![step2_flow](./imgs/step2_flow.jpg)
 
 ### 종류
 
@@ -190,16 +190,16 @@ public Step flowStep() {
     + `Step` 의 `StepExecution` 중 하나라도 실패하면 `JobExecution` 은 실패한다.
         + 재시작을 할 때 이미 완료된 `Step` 은 건너뛴다. (ex. Step1, Step2, Step3 중에 Step1 성공, Step2 실패되었을 때 다시 시작하면 Step2 부터 진행된다.)
 
-![step3_flow](./step3_flow.jpg)
+![step3_flow](./imgs/step3_flow.jpg)
 
-![step4_flow](./step4_flow.jpg)
+![step4_flow](./imgs/step4_flow.jpg)
 
 #### `BATCH_STEP_EXECUTION` 테이블과 매핑
 
 * `JobExecution` 과 `StepExecution` 는 1:M 의 관계
 * 하나의 `Job` 에 여러 개의 `Step` 으로 구성했을 경우, 각 `StepExecution` 은 하나의 `JobExecution` 을 부모로 가진다.
 
-![step5_flow](./step5_flow.jpg)
+![step5_flow](./imgs/step5_flow.jpg)
 
 ### StepContribution
 
@@ -210,8 +210,71 @@ public Step flowStep() {
 * 청크 Commit 직전에 `StepExecution` 의 `apply` 메서드를 호출하여 상태를 업데이트 함
 * `ExitStatus` 의 기본 종료코드 외 사용자 정의 종료코드를 생성해서 적용할 수 있음
 
-![step6_flow](./step6_flow.jpg)
+#### Flow
+
+![step6_flow](./imgs/step6_flow.jpg)
+
+![step7_flow](./imgs/step7_flow.jpg)
 
 ## ExecutionContext
 
-## JobRepository / JobLauncher
+프레임워크에서 유지 및 관리하는 키/값으로 된 컬렉션(Map)으로 `StepExecution` 또는 `JobExecution` 객체의 상태(state) 를 저장하는 공유 객체
+
+* DB 에 직렬화 한 값으로 저장됨
+    + {"key": "value"}
+* 공유 범위
+    + `Step` 범위 - 각 `Step` 의 `StepExecution` 에 저장되며 `Step` 간 서로 공유 안됨
+    + `Job` 범위 - 각 `Job` 의 `JobExecution` 에 저장되며 `Job` 간 서로 공유 안되며 해당 `Job` 의 `Step` 간 서로 공유됨
+* `Job` 재시작시 이미 처리한 Row 데이터는 건너뛰고 이후로 수행하도록 할 때 상태 정보를 활용한다.
+
+### 구조
+
+![executioncontext](./imgs/executioncontext.jpg)
+
+![executioncontext2](./imgs/executioncontext2.jpg)
+
+## JobRepository
+
+배치 작업 중의 정보를 저장하는 저장소 역할
+
+Job 이 언제 수행되었고, 언제 끝났으며, 몇 번이 실행되었고 실행에 대한 결과 등의 배치 작업의 수행과 관련된 모든 meta data 를 저장한다.
+
+> JobLauncher, Job, Stepo 구현체 내부에서 CRUD 기능을 처리한다.
+
+![jobrepository_flow](./imgs/jobrepository_flow.jpg)
+
+### 설정
+
+`@EnableBatchProcessing` Annotation 만 선언하면 `JobRepository` 가 자동으로 Bean 으로 생성된다.
+
+BatchConfigurer 인터페이스를 구현하거나 BasicBatchConfigurer 를 상속해서 `JobRepository` 설정을 커스터마이징을 할 수 있다.
+
+* JDBC 방식으로 설정 - JobRepositoryFactoryBean
+    + 내부적으로 AOP 기술을 통해 트랜잭션 처리를 해주고 있음
+    + 트랜잭션 isolation 의 기본값은 SERIALIZEBLE 로 최고 수준. 다른 레벨로 지정 가능
+    + 메타테이블의 Table Prefix 로 변경할 수 있음. 기본값은 BATCH_ 임
+* In-Memory 방식으로 설정 - MapJobRepositoryFactoryBean
+    + 성능 등의 이유로 도메인 오브젝트를 굳이 데이터베이스에 저장하고 싶지 않을 경우
+    + 보통 Test 나 프로토타입의 빠른 개발이 필요할 때 사용
+
+## JobLauncher
+
+Batch Job 을 실행시키는 역할을 한다.
+
+Job 과 Job Parameters 를 인자로 받으며, 요청된 배치 작업을 수행한 후 최종 client 에게 JobExecution 을 반환함
+
+Spring Boot Batch 가 구동이 되면 `JobLauncher` 빈이 자동 생성된다.
+
+* Job 실행
+    + JobLauncher.run(Job, JobParameters)
+    + Spring Boot Batch 에서는 JobLauncherApplicationRunner 가 자동적으로 JobLauncher 를 실행시킨다
+    + 동기적 실행
+        + taskExecutor 를 SyncTaskExecutor 로 설정할 경우 (기본값은 SyncTaskExecutor)
+        + JobExecution 을 획득하고, 배치 처리를 최종 완료한 이후 Client 에게 JobExecution 을 반환
+        + 스케줄러에 의한 배치 처리에 적합함 - 배치 처리 시간이 길어도 상관없을 경우
+    + 비동기적 실행
+        + taskExecutor 가 SimpleAsyncTaskExecutor 로 설정할 경우
+        + JobExecution 을 획득한 후 Client 에게 바로 JobExecution 을 반환하고 배치 처리를 완료한다.
+        + HTTP 요청에 의한 배치 처리에 적합함 - 배치 처리 시간이 길 경우, 응답이 늦어지지 않도록 함
+
+![jobrepo](./imgs/jobrepository_flow.jpg)
