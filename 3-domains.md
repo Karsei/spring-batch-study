@@ -269,12 +269,24 @@ Spring Boot Batch 가 구동이 되면 `JobLauncher` 빈이 자동 생성된다.
     + JobLauncher.run(Job, JobParameters)
     + Spring Boot Batch 에서는 JobLauncherApplicationRunner 가 자동적으로 JobLauncher 를 실행시킨다
     + 동기적 실행
-        + taskExecutor 를 SyncTaskExecutor 로 설정할 경우 (기본값은 SyncTaskExecutor)
-        + JobExecution 을 획득하고, 배치 처리를 최종 완료한 이후 Client 에게 JobExecution 을 반환
+        + taskExecutor 를 `SyncTaskExecutor` 로 설정할 경우 (기본값은 SyncTaskExecutor)
+        + `JobExecution` 을 획득하고, 배치 처리를 최종 완료한 이후 Client 에게 `JobExecution` 을 반환
         + 스케줄러에 의한 배치 처리에 적합함 - 배치 처리 시간이 길어도 상관없을 경우
     + 비동기적 실행
-        + taskExecutor 가 SimpleAsyncTaskExecutor 로 설정할 경우
-        + JobExecution 을 획득한 후 Client 에게 바로 JobExecution 을 반환하고 배치 처리를 완료한다.
+        + taskExecutor 가 `SimpleAsyncTaskExecutor` 로 설정할 경우
+        + `JobExecution` 을 획득한 후 Client 에게 바로 `JobExecution` 을 반환하고 배치 처리를 완료한다.
         + HTTP 요청에 의한 배치 처리에 적합함 - 배치 처리 시간이 길 경우, 응답이 늦어지지 않도록 함
+        * Autowird 된 `JobLauncher` 에 `SimpleJobLauncher` 로 Cast 불가 (프록시 객체로 생성됨)
+            + `BasicBatchConfigurer` 에서 `JobLauncher` 를 가져와서 Cast 해서 사용 (여기 클래스에는 실제 객체를 사용함)
+        ```java
+        @Autowired
+        private BasicBatchConfigurer basicBatchConfigurer;
+
+        public void sample() {
+            SimpleJobLauncher jobLauncher = (SimpleJobLauncher) basicBatchConfigurer.getJobLaunchier();
+            jobLauncher.setTaskExecutor(new SimpleAsyncTaskExecutor());
+            jobLauncher.run(job, jobParameters);
+        }
+        ```
 
 ![jobrepo](./imgs/jobrepository_flow.jpg)
