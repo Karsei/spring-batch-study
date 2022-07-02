@@ -42,6 +42,8 @@ pattern 과 `ExitStatus` 와 매칭이 되면 다음으로 실행할 `Step` 을 
 
 다음으로 실행할 단계를 지정
 
+> to() 다음에 on() 이 올 경우 조건이 만족하는 것이 없으면 기본적으로 실패로 간주함 (Step 은 COMPLETED 이나 Job 은 FAILED)
+
 ### from()
 
 이전 단계에서 정의한 Transition 을 새롭게 추가 정의함
