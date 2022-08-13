@@ -20,3 +20,5 @@ void close() throws ItemStreamException
 ```
 
 ![is](./imgs/itemstream.png)
+
+ItemStreamReader, ItemStreamWriter 를 구현해서 사용
